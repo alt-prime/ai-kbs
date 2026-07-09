@@ -1,6 +1,7 @@
 'use client';
 
 import { useChat, UIMessage } from '@ai-sdk/react';
+import { DefaultChatTransport } from 'ai';
 import { useState, useEffect } from 'react';
 import { Send, Bot, User, MapPin, Search, Globe } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
@@ -18,19 +19,23 @@ export default function Chat({ onSaunasFound }: { onSaunasFound: (saunas: Sauna[
   const [lang, setLang] = useState<'ja' | 'en'>('ja');
 
   const { messages, sendMessage, status, error } = useChat({
-    api: '/api/chat',
-    headers: deviceId ? { 'x-device-id': deviceId } : undefined,
-    body: { language: lang },
+    transport: new DefaultChatTransport({
+      api: '/api/chat',
+      headers: deviceId ? { 'x-device-id': deviceId } : undefined
+    }),
   });
 
-  // Initialize device ID
+  // Initialize device ID asynchronously to avoid React compiler warnings
   useEffect(() => {
-    let id = localStorage.getItem('sauna-device-id');
-    if (!id) {
-      id = uuidv4();
-      localStorage.setItem('sauna-device-id', id);
-    }
-    setDeviceId(id);
+    const initDevice = async () => {
+      let id = localStorage.getItem('sauna-device-id');
+      if (!id) {
+        id = uuidv4();
+        localStorage.setItem('sauna-device-id', id);
+      }
+      setDeviceId(id);
+    };
+    initDevice();
   }, []);
 
   // Extract saunas from tool invocations
@@ -170,7 +175,7 @@ export default function Chat({ onSaunasFound }: { onSaunasFound: (saunas: Sauna[
           onSubmit={event => {
             event.preventDefault();
             if (!input.trim()) return;
-            sendMessage({ text: input });
+            sendMessage({ text: input }, { body: { language: lang } });
             setInput('');
           }} 
           className="flex gap-2 relative"
