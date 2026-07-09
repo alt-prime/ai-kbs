@@ -1,12 +1,13 @@
 'use client';
 
-import { APIProvider, Map, AdvancedMarker, Pin } from '@vis.gl/react-google-maps';
+import { APIProvider, Map, AdvancedMarker, Pin, InfoWindow } from '@vis.gl/react-google-maps';
 import { useState, useEffect } from 'react';
 import { Sauna } from './Chat';
 
 export default function MapComponent({ saunas }: { saunas: Sauna[] }) {
   const [center, setCenter] = useState({ lat: 33.5902, lng: 130.4075 }); // Default: Fukuoka
   const [zoom, setZoom] = useState(8); // Broad enough to see Kyushu
+  const [selectedSauna, setSelectedSauna] = useState<Sauna | null>(null);
 
   useEffect(() => {
     if (saunas && saunas.length > 0) {
@@ -38,10 +39,37 @@ export default function MapComponent({ saunas }: { saunas: Sauna[] }) {
               key={sauna.id || index} 
               position={sauna.location}
               title={sauna.name}
+              onClick={() => setSelectedSauna(sauna)}
             >
               <Pin background={"#059669"} borderColor={"#047857"} glyphColor={"#ffffff"} />
             </AdvancedMarker>
           ))}
+
+          {selectedSauna && (
+            <InfoWindow
+              position={selectedSauna.location}
+              onCloseClick={() => setSelectedSauna(null)}
+            >
+              <div className="p-1 max-w-[200px] text-gray-800">
+                <h3 className="font-bold text-base mb-1">{selectedSauna.name}</h3>
+                {!!selectedSauna.rating && (
+                  <p className="text-sm">⭐️ {String(selectedSauna.rating)}</p>
+                )}
+                {!!selectedSauna.water_temp && (
+                  <p className="text-sm">💧 水風呂: {String(selectedSauna.water_temp)}℃</p>
+                )}
+                {!!selectedSauna.features && Array.isArray(selectedSauna.features) && (
+                  <div className="flex flex-wrap gap-1 mt-2">
+                    {selectedSauna.features.map((f: string, i: number) => (
+                      <span key={i} className="bg-emerald-100 text-emerald-800 text-[10px] px-1.5 py-0.5 rounded">
+                        {f}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </InfoWindow>
+          )}
         </Map>
       </APIProvider>
     </div>

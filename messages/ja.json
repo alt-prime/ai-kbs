@@ -1,0 +1,16 @@
+{
+  "Chat": {
+    "title": "九州サウナコンシェルジュ",
+    "subtitle": "あなたにぴったりのサウナをご提案します",
+    "welcome": "九州のサウナについて\n何でも聞いてください。",
+    "suggestion1": "福岡でロウリュがあるサウナ",
+    "suggestion2": "水風呂が15度以下のサウナ",
+    "suggestion3": "絶景の外気浴ができるサウナ",
+    "placeholder": "どんなサウナを探していますか？",
+    "errorOccurred": "エラーが発生しました。",
+    "toggleLang": "EN",
+    "toggleTo": "en",
+    "searching": "データベースを検索中...",
+    "foundSaunas": "{count}件のサウナが見つかりました。"
+  }
+}

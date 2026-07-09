@@ -1,0 +1,16 @@
+{
+  "Chat": {
+    "title": "Kyushu Sauna Concierge",
+    "subtitle": "Finding the perfect sauna for you",
+    "welcome": "Ask me anything about\nsaunas in Kyushu.",
+    "suggestion1": "Fukuoka saunas with löyly",
+    "suggestion2": "Cold water under 15°C",
+    "suggestion3": "Saunas with a great view",
+    "placeholder": "What kind of sauna are you looking for?",
+    "errorOccurred": "An error occurred.",
+    "toggleLang": "JA",
+    "toggleTo": "ja",
+    "searching": "Searching database...",
+    "foundSaunas": "Found {count} saunas."
+  }
+}

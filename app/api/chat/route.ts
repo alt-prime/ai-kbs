@@ -1,5 +1,5 @@
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
-import { streamText, tool, type UIMessage, convertToModelMessages, embed } from 'ai';
+import { streamText, tool, type UIMessage, convertToModelMessages, embed, generateObject } from 'ai';
 import { z } from 'zod';
 import { db } from '@/lib/firebase';
 import { FieldValue, QueryDocumentSnapshot } from 'firebase-admin/firestore';
@@ -38,6 +38,26 @@ export async function POST(req: Request) {
     const body = await req.json();
     const messages: (UIMessage & { content?: string })[] = body.messages || [];
     const language = body.language === 'en' ? 'en' : 'ja';
+
+    // --- PROFANITY FILTER LOGIC ---
+    const lastUserMessage = messages.slice().reverse().find(m => m.role === 'user');
+    if (lastUserMessage) {
+      const text = lastUserMessage.content || lastUserMessage.parts?.map(p => (p as any).text || '').join('') || '';
+      if (text) {
+        const segmenter = new Intl.Segmenter('ja', { granularity: 'word' });
+        const segments = Array.from(segmenter.segment(text)).map(s => s.segment);
+        const blocklist = ['死ね', '殺す', 'バカ', 'アホ', 'カス', 'クソ', 'ばか', 'あほ', '死'];
+        
+        const hasInappropriateWord = segments.some(word => blocklist.includes(word));
+        if (hasInappropriateWord) {
+          const msg = language === 'en'
+            ? 'Please refrain from using inappropriate language.'
+            : '不適切な表現が含まれる内容はお控えください';
+          return new Response(msg, { status: 400 });
+        }
+      }
+    }
+    // --- END PROFANITY FILTER LOGIC ---
     
     // --- RATE LIMITING LOGIC ---
     // Bypass rate limiting entirely in local development
@@ -95,6 +115,29 @@ export async function POST(req: Request) {
     const google = createGoogleGenerativeAI({
       apiKey: geminiApiKey,
     });
+
+    // --- TOPIC ENFORCEMENT (1st Layer AI) ---
+    const lastUserMessageForTopic = messages.slice().reverse().find(m => m.role === 'user');
+    if (lastUserMessageForTopic) {
+      const text = lastUserMessageForTopic.content || lastUserMessageForTopic.parts?.map(p => (p as any).text || '').join('') || '';
+      if (text) {
+        const { object } = await generateObject({
+          model: google('gemini-2.5-flash'),
+          schema: z.object({
+            isRelatedToKyushuSauna: z.boolean().describe('ユーザーの質問が、九州のサウナに関連する内容かどうか。一般的な挨拶などは許容してtrueを返し、全く無関係な質問（例: 料理のレシピ、プログラミングの質問、他の地域の観光など）であればfalseを返すこと。'),
+          }),
+          prompt: `Evaluate if the following user message is related to saunas in Kyushu, Japan or saunas in general.\nUser message: "${text}"`,
+        });
+
+        if (!object.isRelatedToKyushuSauna) {
+          const msg = language === 'en'
+            ? 'Please ask questions related to saunas in Kyushu.'
+            : '九州のサウナに関連する内容を回答してください';
+          return new Response(msg, { status: 400 });
+        }
+      }
+    }
+    // --- END TOPIC ENFORCEMENT ---
 
     const result = streamText({
       model: google('gemini-2.5-flash'),

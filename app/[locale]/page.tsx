@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import Chat, { Sauna } from './components/Chat';
-import MapComponent from './components/Map';
+import Chat, { Sauna } from '../components/Chat';
+import MapComponent from '../components/Map';
 
 export default function Home() {
   const [saunas, setSaunas] = useState<Sauna[]>([]);
