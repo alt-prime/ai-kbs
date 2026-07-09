@@ -12,5 +12,18 @@
     "toggleTo": "ja",
     "searching": "Searching database...",
     "foundSaunas": "Found {count} saunas."
+  },
+  "Map": {
+    "waterTemp": "Water Temp: "
+  },
+  "Navigation": {
+    "list": "List",
+    "ai": "AI",
+    "map": "Map"
+  },
+  "List": {
+    "empty": "Talk to AI to find a sauna.",
+    "rating": "⭐️ ",
+    "waterTemp": "💧 Water Temp: "
   }
 }

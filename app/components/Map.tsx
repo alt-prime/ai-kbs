@@ -3,11 +3,15 @@
 import { APIProvider, Map, AdvancedMarker, Pin, InfoWindow } from '@vis.gl/react-google-maps';
 import { useState, useEffect } from 'react';
 import { Sauna } from './Chat';
+import { useTranslations, useLocale } from 'next-intl';
 
 export default function MapComponent({ saunas }: { saunas: Sauna[] }) {
   const [center, setCenter] = useState({ lat: 33.5902, lng: 130.4075 }); // Default: Fukuoka
   const [zoom, setZoom] = useState(8); // Broad enough to see Kyushu
   const [selectedSauna, setSelectedSauna] = useState<Sauna | null>(null);
+
+  const t = useTranslations('Map');
+  const locale = useLocale();
 
   useEffect(() => {
     if (saunas && saunas.length > 0) {
@@ -24,7 +28,7 @@ export default function MapComponent({ saunas }: { saunas: Sauna[] }) {
 
   return (
     <div className="w-full h-full rounded-2xl overflow-hidden shadow-xl border border-gray-200">
-      <APIProvider apiKey={apiKey}>
+      <APIProvider apiKey={apiKey} language={locale}>
         <Map
           defaultCenter={{ lat: 33.5902, lng: 130.4075 }}
           center={center}
@@ -33,6 +37,8 @@ export default function MapComponent({ saunas }: { saunas: Sauna[] }) {
           mapId="DEMO_MAP_ID"
           onCenterChanged={(e) => setCenter(e.detail.center)}
           onZoomChanged={(e) => setZoom(e.detail.zoom)}
+          mapTypeControl={false}
+          streetViewControl={false}
         >
           {saunas.map((sauna, index) => (
             <AdvancedMarker 
@@ -56,7 +62,7 @@ export default function MapComponent({ saunas }: { saunas: Sauna[] }) {
                   <p className="text-sm">⭐️ {String(selectedSauna.rating)}</p>
                 )}
                 {!!selectedSauna.water_temp && (
-                  <p className="text-sm">💧 水風呂: {String(selectedSauna.water_temp)}℃</p>
+                  <p className="text-sm">💧 {t('waterTemp')}{String(selectedSauna.water_temp)}℃</p>
                 )}
                 {!!selectedSauna.features && Array.isArray(selectedSauna.features) && (
                   <div className="flex flex-wrap gap-1 mt-2">

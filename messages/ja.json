@@ -12,5 +12,18 @@
     "toggleTo": "en",
     "searching": "データベースを検索中...",
     "foundSaunas": "{count}件のサウナが見つかりました。"
+  },
+  "Map": {
+    "waterTemp": "水風呂: "
+  },
+  "Navigation": {
+    "list": "一覧",
+    "ai": "AI",
+    "map": "Map"
+  },
+  "List": {
+    "empty": "AIに話しかけてサウナを探しましょう",
+    "rating": "⭐️ ",
+    "waterTemp": "💧 水風呂: "
   }
 }
