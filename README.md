@@ -1,3 +1,32 @@
+# AI Knowledge Base System (ai-kbs)
+
+## アプリケーション概要
+このアプリケーションは、AIチャットを通じてユーザーの質問に回答するシステムです。情報取得は以下のフローで行われます：
+
+1. **自社DB（Cloud Storage）検索**: まず、自社データベース（Cloud Storageなど）にアクセスし、関連する情報の取得を試みます。
+2. **Web検索（フォールバック）**: 自社データベースに該当する情報が存在しなかった場合、自動的にWeb検索を実行し、外部から必要な情報を取得して回答を生成します。
+
+## 技術スタック（予定）
+* **AIモデル**: Google Gemini (Function Calling機能を用いてDB検索とWeb検索をルーティング)
+* **フロントエンド/バックエンド**: Next.js (App Router)
+* **自社DB**: 未定 (Cloud Storage)
+* **Web検索**: 未定 (GeminiのGroudning機能 または 外部検索API)
+
+## 環境変数
+
+Gemini APIキーはコードに直接記載せず、環境変数として設定します。
+
+1. `.env.example` を参考に、プロジェクト直下へ `.env.local` を作成します。
+2. [Google AI Studio](https://aistudio.google.com/app/apikey) で取得したAPIキーを設定します。
+
+```env
+GOOGLE_GENERATIVE_AI_API_KEY=your_gemini_api_key
+```
+
+`.env.local` は `.gitignore` によりGit管理対象外です。APIキーなどの秘密情報はコミットしないでください。
+
+---
+
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started

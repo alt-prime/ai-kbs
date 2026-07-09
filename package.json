@@ -9,9 +9,19 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@ai-sdk/google": "^3.0.83",
+    "@ai-sdk/react": "^3.0.211",
+    "@google/genai": "^2.10.0",
+    "@vis.gl/react-google-maps": "^1.9.0",
+    "ai": "^6.0.209",
+    "cheerio": "^1.2.0",
+    "firebase": "^12.15.0",
+    "firebase-admin": "^14.1.0",
+    "lucide-react": "^1.23.0",
     "next": "16.2.9",
     "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "react-dom": "19.2.4",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
