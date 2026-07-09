@@ -42,7 +42,7 @@ export async function POST(req: Request) {
     // --- PROFANITY FILTER LOGIC ---
     const lastUserMessage = messages.slice().reverse().find(m => m.role === 'user');
     if (lastUserMessage) {
-      const text = lastUserMessage.content || lastUserMessage.parts?.map(p => (p as any).text || '').join('') || '';
+      const text = lastUserMessage.content || lastUserMessage.parts?.map(p => p.type === 'text' ? p.text : '').join('') || '';
       if (text) {
         const segmenter = new Intl.Segmenter('ja', { granularity: 'word' });
         const segments = Array.from(segmenter.segment(text)).map(s => s.segment);
@@ -119,7 +119,7 @@ export async function POST(req: Request) {
     // --- TOPIC ENFORCEMENT (1st Layer AI) ---
     const lastUserMessageForTopic = messages.slice().reverse().find(m => m.role === 'user');
     if (lastUserMessageForTopic) {
-      const text = lastUserMessageForTopic.content || lastUserMessageForTopic.parts?.map(p => (p as any).text || '').join('') || '';
+      const text = lastUserMessageForTopic.content || lastUserMessageForTopic.parts?.map(p => p.type === 'text' ? p.text : '').join('') || '';
       if (text) {
         const { object } = await generateObject({
           model: google('gemini-2.5-flash'),
