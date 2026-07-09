@@ -31,71 +31,67 @@ export async function POST(req: Request) {
     );
   }
 
+
+
+  // Read request body once
+  const body = await req.json();
+  const messages: UIMessage[] = body.messages || [];
+  const language = body.language === 'en' ? 'en' : 'ja';
   // --- RATE LIMITING LOGIC ---
-  const ip = req.headers.get('x-forwarded-for') || '127.0.0.1';
-  const deviceId = req.headers.get('x-device-id') || 'unknown';
+  // Bypass rate limiting entirely in local development
+  if (process.env.NODE_ENV !== 'development') {
+    const ip = req.headers.get('x-forwarded-for') || '127.0.0.1';
+    const deviceId = req.headers.get('x-device-id') || 'unknown';
 
-  // Extract language from request
-  let language = 'ja';
-  try {
-    const clonedReq = req.clone();
-    const body = await clonedReq.json();
-    if (body.language === 'en') {
-      language = 'en';
-    }
-  } catch (e) {
-    // ignore
-  }
+    try {
+      // 1. Layer: Upstash Redis (IP Limiting)
+      if (redisRatelimit) {
+        const { success } = await redisRatelimit.limit(`ip:${ip}`);
+        if (!success) {
+          const msg = language === 'en' 
+            ? 'Daily usage limit (5 times) reached for this network (IP).' 
+            : 'このネットワーク(IP)からの1日の利用上限（5回）に達しました。(Redis)';
+          return new Response(msg, { status: 429 });
+        }
+      }
 
-  try {
-    // 1. Layer: Upstash Redis (IP Limiting)
-    if (redisRatelimit) {
-      const { success } = await redisRatelimit.limit(`ip:${ip}`);
-      if (!success) {
+      // 2. & 3. Layers: Firestore (UUID & IP Limiting)
+      const today = new Date().toISOString().split('T')[0];
+      const safeIp = ip.replace(/[:.]/g, '_'); // sanitize for document ID
+      const deviceRef = db.collection('rate_limits_device').doc(`${deviceId}_${today}`);
+      const ipRef = db.collection('rate_limits_ip').doc(`${safeIp}_${today}`);
+
+      const [deviceDoc, ipDoc] = await Promise.all([deviceRef.get(), ipRef.get()]);
+      const deviceCount = deviceDoc.exists ? deviceDoc.data()?.count || 0 : 0;
+      const ipCount = ipDoc.exists ? ipDoc.data()?.count || 0 : 0;
+
+      if (deviceCount >= 3) {
         const msg = language === 'en' 
-          ? 'Daily usage limit (5 times) reached for this network (IP).' 
-          : 'このネットワーク(IP)からの1日の利用上限（5回）に達しました。(Redis)';
+          ? 'Daily usage limit (3 times) reached for this device.' 
+          : '1台のPCからの1日の利用上限（3回）に達しました。';
         return new Response(msg, { status: 429 });
       }
+      if (ipCount >= 5) {
+        const msg = language === 'en' 
+          ? 'Daily usage limit (5 times) reached for this network (IP).' 
+          : 'このネットワーク(IP)からの1日の利用上限（5回）に達しました。(Firestore)';
+        return new Response(msg, { status: 429 });
+      }
+
+      // Increment usage in Firestore
+      const batch = db.batch();
+      batch.set(deviceRef, { count: deviceCount + 1, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+      batch.set(ipRef, { count: ipCount + 1, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+      await batch.commit();
+
+    } catch (error) {
+      console.error('Rate limiting error:', error);
     }
-
-    // 2. & 3. Layers: Firestore (UUID & IP Limiting)
-    const today = new Date().toISOString().split('T')[0];
-    const safeIp = ip.replace(/[:.]/g, '_'); // sanitize for document ID
-    const deviceRef = db.collection('rate_limits_device').doc(`${deviceId}_${today}`);
-    const ipRef = db.collection('rate_limits_ip').doc(`${safeIp}_${today}`);
-
-    const [deviceDoc, ipDoc] = await Promise.all([deviceRef.get(), ipRef.get()]);
-    const deviceCount = deviceDoc.exists ? deviceDoc.data()?.count || 0 : 0;
-    const ipCount = ipDoc.exists ? ipDoc.data()?.count || 0 : 0;
-
-    if (deviceCount >= 3) {
-      const msg = language === 'en' 
-        ? 'Daily usage limit (3 times) reached for this device.' 
-        : '1台のPCからの1日の利用上限（3回）に達しました。';
-      return new Response(msg, { status: 429 });
-    }
-    if (ipCount >= 5) {
-      const msg = language === 'en' 
-        ? 'Daily usage limit (5 times) reached for this network (IP).' 
-        : 'このネットワーク(IP)からの1日の利用上限（5回）に達しました。(Firestore)';
-      return new Response(msg, { status: 429 });
-    }
-
-    // Increment usage in Firestore
-    const batch = db.batch();
-    batch.set(deviceRef, { count: deviceCount + 1, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
-    batch.set(ipRef, { count: ipCount + 1, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
-    await batch.commit();
-
-  } catch (error) {
-    console.error('Rate limiting error:', error);
-    // Fail open or fail closed? For portfolio, fail open (allow request) if Firestore errors, to avoid breaking the demo unexpectedly if quota is exceeded
   }
   // --- END RATE LIMITING LOGIC ---
 
 
-  const { messages }: { messages: UIMessage[] } = await req.json();
+
   const google = createGoogleGenerativeAI({
     apiKey: geminiApiKey,
   });
