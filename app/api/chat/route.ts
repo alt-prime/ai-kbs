@@ -35,12 +35,27 @@ export async function POST(req: Request) {
   const ip = req.headers.get('x-forwarded-for') || '127.0.0.1';
   const deviceId = req.headers.get('x-device-id') || 'unknown';
 
+  // Extract language from request
+  let language = 'ja';
+  try {
+    const clonedReq = req.clone();
+    const body = await clonedReq.json();
+    if (body.language === 'en') {
+      language = 'en';
+    }
+  } catch (e) {
+    // ignore
+  }
+
   try {
     // 1. Layer: Upstash Redis (IP Limiting)
     if (redisRatelimit) {
       const { success } = await redisRatelimit.limit(`ip:${ip}`);
       if (!success) {
-        return new Response('このネットワーク(IP)からの1日の利用上限（5回）に達しました。(Redis)', { status: 429 });
+        const msg = language === 'en' 
+          ? 'Daily usage limit (5 times) reached for this network (IP).' 
+          : 'このネットワーク(IP)からの1日の利用上限（5回）に達しました。(Redis)';
+        return new Response(msg, { status: 429 });
       }
     }
 
@@ -55,10 +70,16 @@ export async function POST(req: Request) {
     const ipCount = ipDoc.exists ? ipDoc.data()?.count || 0 : 0;
 
     if (deviceCount >= 3) {
-      return new Response('1台のPCからの1日の利用上限（3回）に達しました。', { status: 429 });
+      const msg = language === 'en' 
+        ? 'Daily usage limit (3 times) reached for this device.' 
+        : '1台のPCからの1日の利用上限（3回）に達しました。';
+      return new Response(msg, { status: 429 });
     }
     if (ipCount >= 5) {
-      return new Response('このネットワーク(IP)からの1日の利用上限（5回）に達しました。(Firestore)', { status: 429 });
+      const msg = language === 'en' 
+        ? 'Daily usage limit (5 times) reached for this network (IP).' 
+        : 'このネットワーク(IP)からの1日の利用上限（5回）に達しました。(Firestore)';
+      return new Response(msg, { status: 429 });
     }
 
     // Increment usage in Firestore
@@ -81,7 +102,13 @@ export async function POST(req: Request) {
 
   const result = streamText({
     model: google('gemini-2.5-pro'),
-    system: `あなたは九州のサウナに詳しいコンシェルジュです。
+    system: language === 'en'
+      ? `You are a concierge familiar with saunas in Kyushu, Japan.
+Listen to the user's requests (location, water temperature, features, etc.) and suggest the best saunas.
+When searching for sauna information, you MUST use the 'searchSaunas' tool to query the Firestore database.
+When suggesting, convey the sauna's name, reasons for recommendation, and reviews in a natural conversation in English.
+If asked by the user, also provide detailed information about the sauna (water temperature and features).`
+      : `あなたは九州のサウナに詳しいコンシェルジュです。
 ユーザーの要望（場所、水風呂の温度、特徴など）を聞き、最適なサウナを提案してください。
 サウナの情報を探す際は、必ず 'searchSaunas' ツールを使用して、Firestoreデータベースから情報を検索してください。
 提案する際は、サウナの名前、おすすめの理由、口コミなどを自然な会話で伝えてください。

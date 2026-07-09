@@ -1,9 +1,8 @@
 'use client';
 
 import { useChat, UIMessage } from '@ai-sdk/react';
-import { DefaultChatTransport } from 'ai';
 import { useState, useEffect } from 'react';
-import { Send, Bot, User, MapPin, Search } from 'lucide-react';
+import { Send, Bot, User, MapPin, Search, Globe } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 
 export interface Sauna {
@@ -16,13 +15,12 @@ export interface Sauna {
 export default function Chat({ onSaunasFound }: { onSaunasFound: (saunas: Sauna[]) => void }) {
   const [input, setInput] = useState('');
   const [deviceId, setDeviceId] = useState<string>('');
+  const [lang, setLang] = useState<'ja' | 'en'>('ja');
 
   const { messages, sendMessage, status, error } = useChat({
-    transport: new DefaultChatTransport({
-      api: '/api/chat',
-      // Send the deviceId in the headers
-      headers: deviceId ? { 'x-device-id': deviceId } : undefined
-    }),
+    api: '/api/chat',
+    headers: deviceId ? { 'x-device-id': deviceId } : undefined,
+    body: { language: lang },
   });
 
   // Initialize device ID
@@ -60,14 +58,23 @@ export default function Chat({ onSaunasFound }: { onSaunasFound: (saunas: Sauna[
 
   return (
     <div className="flex flex-col w-full h-full bg-white/80 backdrop-blur-md rounded-2xl shadow-xl overflow-hidden border border-white/50">
-      <div className="bg-gradient-to-r from-emerald-600 to-teal-500 p-4 text-white flex items-center gap-3 shadow-md z-10">
+      <div className="bg-gradient-to-r from-emerald-600 to-teal-500 p-4 text-white flex items-center gap-3 shadow-md z-10 relative">
         <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm">
           <Bot size={24} className="text-white" />
         </div>
-        <div>
-          <h2 className="font-bold text-lg">九州サウナコンシェルジュ</h2>
-          <p className="text-xs text-emerald-100 opacity-90">あなたにぴったりのサウナをご提案します</p>
+        <div className="flex-1">
+          <h2 className="font-bold text-lg">{lang === 'en' ? 'Kyushu Sauna Concierge' : '九州サウナコンシェルジュ'}</h2>
+          <p className="text-xs text-emerald-100 opacity-90">{lang === 'en' ? 'Finding the perfect sauna for you' : 'あなたにぴったりのサウナをご提案します'}</p>
         </div>
+        
+        {/* Language Toggle */}
+        <button 
+          onClick={() => setLang(lang === 'ja' ? 'en' : 'ja')}
+          className="flex items-center gap-1 bg-white/20 hover:bg-white/30 transition-colors px-2 py-1 rounded-full text-xs font-medium backdrop-blur-sm"
+        >
+          <Globe size={14} />
+          <span>{lang === 'ja' ? 'EN' : 'JA'}</span>
+        </button>
       </div>
 
       <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-slate-50/50 scroll-smooth">
@@ -76,11 +83,17 @@ export default function Chat({ onSaunasFound }: { onSaunasFound: (saunas: Sauna[
             <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mb-2">
               <MapPin size={36} className="text-emerald-500" />
             </div>
-            <p className="text-center font-medium">九州のサウナについて<br/>何でも聞いてください。</p>
+            <p className="text-center font-medium">
+              {lang === 'en' ? (
+                <>Ask me anything about<br/>saunas in Kyushu.</>
+              ) : (
+                <>九州のサウナについて<br/>何でも聞いてください。</>
+              )}
+            </p>
             <div className="flex flex-wrap gap-2 justify-center mt-4 max-w-sm">
-              <span className="px-3 py-1 bg-white border border-gray-200 rounded-full text-xs text-gray-500 shadow-sm">福岡のサウナ</span>
-              <span className="px-3 py-1 bg-white border border-gray-200 rounded-full text-xs text-gray-500 shadow-sm">水風呂が冷たい</span>
-              <span className="px-3 py-1 bg-white border border-gray-200 rounded-full text-xs text-gray-500 shadow-sm">外気浴が最高</span>
+              <span className="px-3 py-1 bg-white border border-gray-200 rounded-full text-xs text-gray-500 shadow-sm">{lang === 'en' ? 'Saunas in Fukuoka' : '福岡のサウナ'}</span>
+              <span className="px-3 py-1 bg-white border border-gray-200 rounded-full text-xs text-gray-500 shadow-sm">{lang === 'en' ? 'Cold water bath' : '水風呂が冷たい'}</span>
+              <span className="px-3 py-1 bg-white border border-gray-200 rounded-full text-xs text-gray-500 shadow-sm">{lang === 'en' ? 'Great outdoor air bath' : '外気浴が最高'}</span>
             </div>
           </div>
         )}
@@ -108,11 +121,14 @@ export default function Chat({ onSaunasFound }: { onSaunasFound: (saunas: Sauna[
                        <div key={index} className="mt-3 text-xs bg-emerald-50 text-emerald-800 p-3 rounded-xl border border-emerald-100/50 flex flex-col gap-2">
                          <div className="flex items-center gap-2 font-medium">
                            <Search size={14} className="animate-pulse" />
-                           <span>データベースを検索中...</span>
+                           <span>{lang === 'en' ? 'Searching database...' : 'データベースを検索中...'}</span>
                          </div>
                          {ti.state === 'result' && (ti.result as { saunas?: Sauna[] })?.saunas && (
                            <div className="pl-5 text-emerald-600/80">
-                             {((ti.result as { saunas?: Sauna[] }).saunas || []).length}件のサウナが見つかりました。
+                             {lang === 'en' 
+                               ? `Found ${((ti.result as { saunas?: Sauna[] }).saunas || []).length} saunas.`
+                               : `${((ti.result as { saunas?: Sauna[] }).saunas || []).length}件のサウナが見つかりました。`
+                             }
                            </div>
                          )}
                        </div>
@@ -127,7 +143,7 @@ export default function Chat({ onSaunasFound }: { onSaunasFound: (saunas: Sauna[
         {error && (
           <div className="flex justify-center mb-4">
              <div className="bg-red-50 text-red-600 px-4 py-3 rounded-lg text-sm border border-red-200/60 shadow-sm max-w-sm text-center">
-               {error.message || 'エラーが発生しました。'}
+               {error.message || (lang === 'en' ? 'An error occurred.' : 'エラーが発生しました。')}
              </div>
           </div>
         )}
@@ -162,7 +178,7 @@ export default function Chat({ onSaunasFound }: { onSaunasFound: (saunas: Sauna[
           <input
             className="w-full p-4 pr-12 border-2 border-gray-100 rounded-full shadow-inner focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition-all bg-gray-50 text-sm"
             value={input}
-            placeholder="どんなサウナを探していますか？"
+            placeholder={lang === 'en' ? 'What kind of sauna are you looking for?' : 'どんなサウナを探していますか？'}
             onChange={event => setInput(event.target.value)}
             disabled={status !== 'ready'}
           />
