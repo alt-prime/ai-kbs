@@ -59,11 +59,57 @@ export async function POST(req: Request) {
     }
     // --- END PROFANITY FILTER LOGIC ---
     
+    const deviceId = req.headers.get('x-device-id') || 'unknown';
+    
+    // --- CHAT SAVE LOGIC (Limited to 1000/day, until Dec 2026) ---
+    if (lastUserMessage) {
+      try {
+        const text = lastUserMessage.content || lastUserMessage.parts?.map(p => p.type === 'text' ? p.text : '').join('') || '';
+        if (text) {
+          const now = new Date();
+          // Check date constraint: before Jan 1, 2027
+          if (now.getFullYear() <= 2026) {
+            const todayStr = now.toISOString().split('T')[0];
+            const statsRef = db.collection('system_stats').doc(`chat_saves_${todayStr}`);
+            
+            // Execute non-blocking save
+            Promise.resolve().then(async () => {
+              try {
+                const doc = await statsRef.get();
+                const count = doc.exists ? doc.data()?.count || 0 : 0;
+                
+                if (count < 1000) {
+                  const batch = db.batch();
+                  
+                  // 1. Increment counter
+                  batch.set(statsRef, { count: count + 1, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+                  
+                  // 2. Save message
+                  const msgRef = db.collection('chat_messages').doc();
+                  batch.set(msgRef, {
+                    content: text,
+                    deviceId,
+                    createdAt: FieldValue.serverTimestamp()
+                  });
+                  
+                  await batch.commit();
+                }
+              } catch (e) {
+                console.error("Failed to save chat message", e);
+              }
+            });
+          }
+        }
+      } catch (e) {
+        console.error("Chat save logic error", e);
+      }
+    }
+    // --- END CHAT SAVE LOGIC ---
+    
     // --- RATE LIMITING LOGIC ---
     // Bypass rate limiting entirely in local development
     if (process.env.NODE_ENV !== 'development') {
       const ip = req.headers.get('x-forwarded-for') || '127.0.0.1';
-      const deviceId = req.headers.get('x-device-id') || 'unknown';
 
       try {
         // 1. Layer: Upstash Redis (IP Limiting)
