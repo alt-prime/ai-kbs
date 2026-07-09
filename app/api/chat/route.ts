@@ -178,7 +178,7 @@ If asked by the user, also provide detailed information about the sauna (water t
               
               // 1. Generate embedding for the search query
               const { embedding } = await embed({
-                model: google.textEmbeddingModel('text-embedding-004'),
+                model: google.textEmbeddingModel('gemini-embedding-2'),
                 value: searchQuery as string,
               });
               

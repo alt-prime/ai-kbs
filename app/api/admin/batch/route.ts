@@ -19,19 +19,38 @@ export async function POST(req: Request) {
   console.log(`[Batch API] Accessed by IP: ${forwardedFor || realIp || 'localhost'}`);
 
   try {
-    // 2. Google Places API (Text Search) を利用してサウナを取得
+    // 2. Google Places API (New) を利用してサウナを取得
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
     if (!apiKey) {
       throw new Error('Google Maps API key is missing.');
     }
 
     const query = '九州 サウナ';
-    const placesUrl = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(query)}&language=ja&key=${apiKey}`;
-
-    const placesResponse = await fetch(placesUrl);
+    const placesUrl = 'https://places.googleapis.com/v1/places:searchText';
+    
+    // API Route (バックエンド) からの実行のため、Refererをlocalhostに設定（APIキーの制限を通過するため）
+    const placesResponse = await fetch(placesUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Goog-Api-Key': apiKey,
+        'X-Goog-FieldMask': 'places.id,places.displayName,places.location,places.rating,places.formattedAddress',
+        'Referer': 'http://localhost:3000'
+      },
+      body: JSON.stringify({
+        textQuery: query,
+        languageCode: 'ja'
+      })
+    });
+    
     const placesData = await placesResponse.json();
 
-    if (!placesData.results || placesData.results.length === 0) {
+    // エラーハンドリング（APIが無効化されている場合など）
+    if (placesData.error) {
+      throw new Error(`Google Places API Error: ${placesData.error.message}`);
+    }
+
+    if (!placesData.places || placesData.places.length === 0) {
       return NextResponse.json({ success: false, message: 'Google Places API からサウナ情報が取得できませんでした。' });
     }
 
@@ -40,20 +59,20 @@ export async function POST(req: Request) {
     
     let addedCount = 0;
 
-    for (const place of placesData.results) {
+    for (const place of placesData.places) {
       // 必要なデータの抽出
-      const id = place.place_id;
-      const name = place.name || '名称不明';
+      const id = place.id;
+      const name = place.displayName?.text || '名称不明';
       const location = { 
-        lat: place.geometry?.location?.lat || 0, 
-        lng: place.geometry?.location?.lng || 0 
+        lat: place.location?.latitude || 0, 
+        lng: place.location?.longitude || 0 
       };
       const rating = place.rating || null;
       
       // 特徴（Google Mapsのフォーマット済み住所から都道府県を抽出など）
       const features = [];
-      if (place.formatted_address) {
-        const match = place.formatted_address.match(/([^都道府県]+[都道府県])/);
+      if (place.formattedAddress) {
+        const match = place.formattedAddress.match(/([^都道府県]+[都道府県])/);
         if (match) features.push(match[0]);
       }
       features.push('サウナ');
@@ -62,10 +81,10 @@ export async function POST(req: Request) {
       const water_temp = 15;
 
       // 3. AI SDKを使ったベクトル化 (Embedding) 処理
-      const descriptionForEmbedding = `施設名: ${name}\n住所: ${place.formatted_address || ''}\n評価: ${rating || 'なし'}\n特徴: ${features.join(', ')}\n水風呂: ${water_temp}度`;
+      const descriptionForEmbedding = `施設名: ${name}\n住所: ${place.formattedAddress || ''}\n評価: ${rating || 'なし'}\n特徴: ${features.join(', ')}\n水風呂: ${water_temp}度`;
 
       const { embedding } = await embed({
-        model: google.textEmbeddingModel('text-embedding-004'),
+        model: google.textEmbeddingModel('gemini-embedding-2'),
         value: descriptionForEmbedding,
       });
 
@@ -77,7 +96,7 @@ export async function POST(req: Request) {
         rating,
         water_temp,
         features,
-        embedding: FieldValue.vector(embedding)
+        embedding: FieldValue.vector(embedding.slice(0, 768)) // Firestoreの2048次元制限を回避するため768次元にスライス
       };
 
       const docRef = saunasCollection.doc(id);
@@ -93,10 +112,10 @@ export async function POST(req: Request) {
       message: `バッチ処理完了: ${addedCount}件のサウナ情報をGoogle Places APIから取得し、AI検索用にベクトル化してデータベースに登録しました！`
     });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('[Batch API Error]', error);
     return NextResponse.json(
-      { error: 'バッチ処理中にエラーが発生しました。詳細はサーバーログを確認してください。' },
+      { error: `バッチ処理エラー: ${error.message || 'サーバーログを確認してください。'}` },
       { status: 500 }
     );
   }
