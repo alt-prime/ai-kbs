@@ -12,6 +12,9 @@
     "@ai-sdk/google": "^3.0.83",
     "@ai-sdk/react": "^3.0.211",
     "@google/genai": "^2.10.0",
+    "@types/uuid": "^10.0.0",
+    "@upstash/ratelimit": "^2.0.8",
+    "@upstash/redis": "^1.38.0",
     "@vis.gl/react-google-maps": "^1.9.0",
     "ai": "^6.0.209",
     "cheerio": "^1.2.0",
@@ -21,6 +24,7 @@
     "next": "16.2.9",
     "react": "19.2.4",
     "react-dom": "19.2.4",
+    "uuid": "^14.0.1",
     "zod": "^4.4.3"
   },
   "devDependencies": {

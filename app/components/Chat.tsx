@@ -4,6 +4,7 @@ import { useChat, UIMessage } from '@ai-sdk/react';
 import { DefaultChatTransport } from 'ai';
 import { useState, useEffect } from 'react';
 import { Send, Bot, User, MapPin, Search } from 'lucide-react';
+import { v4 as uuidv4 } from 'uuid';
 
 export interface Sauna {
   id?: string;
@@ -13,13 +14,26 @@ export interface Sauna {
 }
 
 export default function Chat({ onSaunasFound }: { onSaunasFound: (saunas: Sauna[]) => void }) {
-  const { messages, sendMessage, status } = useChat({
+  const [input, setInput] = useState('');
+  const [deviceId, setDeviceId] = useState<string>('');
+
+  const { messages, sendMessage, status, error } = useChat({
     transport: new DefaultChatTransport({
       api: '/api/chat',
+      // Send the deviceId in the headers
+      headers: deviceId ? { 'x-device-id': deviceId } : undefined
     }),
   });
-  
-  const [input, setInput] = useState('');
+
+  // Initialize device ID
+  useEffect(() => {
+    let id = localStorage.getItem('sauna-device-id');
+    if (!id) {
+      id = uuidv4();
+      localStorage.setItem('sauna-device-id', id);
+    }
+    setDeviceId(id);
+  }, []);
 
   // Extract saunas from tool invocations
   useEffect(() => {
@@ -110,7 +124,14 @@ export default function Chat({ onSaunasFound }: { onSaunasFound: (saunas: Sauna[
             </div>
           </div>
         ))}
-        {status === 'submitted' && (
+        {error && (
+          <div className="flex justify-center mb-4">
+             <div className="bg-red-50 text-red-600 px-4 py-3 rounded-lg text-sm border border-red-200/60 shadow-sm max-w-sm text-center">
+               {error.message || 'エラーが発生しました。'}
+             </div>
+          </div>
+        )}
+        {status === 'submitted' && !error && (
           <div className="flex justify-start animate-in fade-in duration-300">
              <div className="flex gap-3 max-w-[80%]">
                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-500 to-teal-500 text-white flex items-center justify-center shrink-0 shadow-sm">

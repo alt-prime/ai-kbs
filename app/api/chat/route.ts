@@ -3,19 +3,76 @@ import { streamText, tool, type UIMessage, convertToModelMessages, embed } from 
 import { z } from 'zod';
 import { db } from '@/lib/firebase';
 import { FieldValue, QueryDocumentSnapshot } from 'firebase-admin/firestore';
+import { Ratelimit } from '@upstash/ratelimit';
+import { Redis } from '@upstash/redis';
+
+// Initialize Redis Rate Limiter if env vars are present
+let redisRatelimit: Ratelimit | null = null;
+if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
+  const redis = new Redis({
+    url: process.env.UPSTASH_REDIS_REST_URL,
+    token: process.env.UPSTASH_REDIS_REST_TOKEN,
+  });
+  // 5 requests per day per IP
+  redisRatelimit = new Ratelimit({
+    redis,
+    limiter: Ratelimit.slidingWindow(5, '1 d'),
+    analytics: true,
+  });
+}
 
 export async function POST(req: Request) {
   const geminiApiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
 
   if (!geminiApiKey || geminiApiKey === 'your_api_key_here') {
     return Response.json(
-      {
-        error:
-          'GOOGLE_GENERATIVE_AI_API_KEY is not set. Add a valid Gemini API key to your environment variables.',
-      },
-      { status: 500 },
+      { error: 'GOOGLE_GENERATIVE_AI_API_KEY is not set.' },
+      { status: 500 }
     );
   }
+
+  // --- RATE LIMITING LOGIC ---
+  const ip = req.headers.get('x-forwarded-for') || '127.0.0.1';
+  const deviceId = req.headers.get('x-device-id') || 'unknown';
+
+  try {
+    // 1. Layer: Upstash Redis (IP Limiting)
+    if (redisRatelimit) {
+      const { success } = await redisRatelimit.limit(`ip:${ip}`);
+      if (!success) {
+        return new Response('このネットワーク(IP)からの1日の利用上限（5回）に達しました。(Redis)', { status: 429 });
+      }
+    }
+
+    // 2. & 3. Layers: Firestore (UUID & IP Limiting)
+    const today = new Date().toISOString().split('T')[0];
+    const safeIp = ip.replace(/[:.]/g, '_'); // sanitize for document ID
+    const deviceRef = db.collection('rate_limits_device').doc(`${deviceId}_${today}`);
+    const ipRef = db.collection('rate_limits_ip').doc(`${safeIp}_${today}`);
+
+    const [deviceDoc, ipDoc] = await Promise.all([deviceRef.get(), ipRef.get()]);
+    const deviceCount = deviceDoc.exists ? deviceDoc.data()?.count || 0 : 0;
+    const ipCount = ipDoc.exists ? ipDoc.data()?.count || 0 : 0;
+
+    if (deviceCount >= 3) {
+      return new Response('1台のPCからの1日の利用上限（3回）に達しました。', { status: 429 });
+    }
+    if (ipCount >= 5) {
+      return new Response('このネットワーク(IP)からの1日の利用上限（5回）に達しました。(Firestore)', { status: 429 });
+    }
+
+    // Increment usage in Firestore
+    const batch = db.batch();
+    batch.set(deviceRef, { count: deviceCount + 1, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+    batch.set(ipRef, { count: ipCount + 1, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+    await batch.commit();
+
+  } catch (error) {
+    console.error('Rate limiting error:', error);
+    // Fail open or fail closed? For portfolio, fail open (allow request) if Firestore errors, to avoid breaking the demo unexpectedly if quota is exceeded
+  }
+  // --- END RATE LIMITING LOGIC ---
+
 
   const { messages }: { messages: UIMessage[] } = await req.json();
   const google = createGoogleGenerativeAI({
