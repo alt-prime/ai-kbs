@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Chat, { Sauna } from '../components/Chat';
 import MapComponent from '../components/Map';
 import SaunaList from '../components/SaunaList';
@@ -11,6 +11,23 @@ export default function Home() {
   const [saunas, setSaunas] = useState<Sauna[]>([]);
   const [activeTab, setActiveTab] = useState<'list' | 'ai' | 'map'>('ai');
   const t = useTranslations('Navigation');
+
+  // 初期データ取得APIからデータを取得
+  useEffect(() => {
+    const fetchInitialSaunas = async () => {
+      try {
+        const response = await fetch('/api/saunas');
+        const data = await response.json();
+        if (data.saunas) {
+          setSaunas(data.saunas);
+        }
+      } catch (error) {
+        console.error('Failed to fetch initial saunas:', error);
+      }
+    };
+    
+    fetchInitialSaunas();
+  }, []);
 
   return (
     <main className="h-screen w-screen bg-slate-100 flex flex-col md:flex-row overflow-hidden font-sans">

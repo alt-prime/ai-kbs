@@ -183,7 +183,7 @@ If asked by the user, also provide detailed information about the sauna (water t
               });
               
               // 2. Perform Vector Search on Firestore
-              const vectorQuery = saunasCollection.findNearest('embedding', FieldValue.vector(embedding), {
+              const vectorQuery = saunasCollection.findNearest('embedding', FieldValue.vector(embedding.slice(0, 768)), {
                 limit: 20,
                 distanceMeasure: 'COSINE'
               });
