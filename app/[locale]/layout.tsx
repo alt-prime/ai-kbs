@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import {NextIntlClientProvider} from 'next-intl';
 import {getMessages} from 'next-intl/server';
 import "../globals.css";
+import { SaunaProvider } from "../context/SaunaContext";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -39,7 +40,9 @@ export default async function RootLayout({
     >
       <body className="min-h-full flex flex-col">
         <NextIntlClientProvider messages={messages}>
-          {children}
+          <SaunaProvider>
+            {children}
+          </SaunaProvider>
         </NextIntlClientProvider>
       </body>
     </html>

@@ -11,7 +11,13 @@
     "toggleLang": "JA",
     "toggleTo": "ja",
     "searching": "Searching database...",
-    "foundSaunas": "Found {count} saunas."
+    "foundSaunas": "Found {count} saunas.",
+    "feedbackPrompt": "Did you get the expected answer?",
+    "feedbackYes": "Yes",
+    "feedbackNo": "No",
+    "feedbackFormPlaceholder": "What was wrong? Help us improve.",
+    "feedbackSubmit": "Send Feedback",
+    "feedbackThanks": "Thank you for your feedback!"
   },
   "Map": {
     "waterTemp": "Water Temp: "

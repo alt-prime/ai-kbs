@@ -11,7 +11,13 @@
     "toggleLang": "EN",
     "toggleTo": "en",
     "searching": "データベースを検索中...",
-    "foundSaunas": "{count}件のサウナが見つかりました。"
+    "foundSaunas": "{count}件のサウナが見つかりました。",
+    "feedbackPrompt": "期待通りの回答は得られましたか？",
+    "feedbackYes": "はい",
+    "feedbackNo": "いいえ",
+    "feedbackFormPlaceholder": "どのような点がご不満でしたか？今後の改善に役立てます。",
+    "feedbackSubmit": "フィードバックを送信",
+    "feedbackThanks": "ご意見ありがとうございます！今後の改善に役立てます。"
   },
   "Map": {
     "waterTemp": "水風呂: "

@@ -19,6 +19,9 @@ export default function Chat({ onSaunasFound }: { onSaunasFound: (saunas: Sauna[
   const [input, setInput] = useState('');
   const [deviceId, setDeviceId] = useState<string>('');
   
+  const [feedbackState, setFeedbackState] = useState<'idle' | 'asking' | 'form' | 'submitting' | 'submitted'>('idle');
+  const [feedbackText, setFeedbackText] = useState('');
+  
   const t = useTranslations('Chat');
   const locale = useLocale();
   const router = useRouter();
@@ -68,6 +71,33 @@ export default function Chat({ onSaunasFound }: { onSaunasFound: (saunas: Sauna[
       onSaunasFound(foundSaunas);
     }
   }, [messages, onSaunasFound]);
+
+  // Check for feedback prompt
+  useEffect(() => {
+    const userMessages = messages.filter(m => m.role === 'user');
+    if (userMessages.length === 3 && feedbackState === 'idle') {
+      setFeedbackState('asking');
+    }
+  }, [messages, feedbackState]);
+
+  const submitFeedback = async () => {
+    setFeedbackState('submitting');
+    try {
+      await fetch('/api/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          feedback: feedbackText,
+          messages,
+          deviceId
+        })
+      });
+      setFeedbackState('submitted');
+    } catch (e) {
+      console.error(e);
+      setFeedbackState('form');
+    }
+  };
 
   return (
     <div className="flex flex-col w-full h-full bg-white/80 backdrop-blur-md rounded-2xl shadow-xl overflow-hidden border border-white/50">
@@ -184,7 +214,61 @@ export default function Chat({ onSaunasFound }: { onSaunasFound: (saunas: Sauna[
              </div>
           </div>
         )}
-      </div>
+         
+         {/* Feedback UI */}
+         {feedbackState !== 'idle' && (
+           <div className="flex justify-center my-6 animate-in slide-in-from-bottom-2 duration-300">
+             <div className="bg-white rounded-2xl shadow-sm border border-emerald-100 p-5 max-w-sm w-full relative">
+               {feedbackState === 'asking' && (
+                 <div className="flex flex-col items-center text-center gap-4">
+                   <p className="text-gray-700 font-medium text-sm">{t('feedbackPrompt')}</p>
+                   <div className="flex gap-3 w-full">
+                     <button 
+                       onClick={() => setFeedbackState('submitted')}
+                       className="flex-1 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 py-2 rounded-xl text-sm font-medium transition-colors"
+                     >
+                       {t('feedbackYes')}
+                     </button>
+                     <button 
+                       onClick={() => setFeedbackState('form')}
+                       className="flex-1 bg-gray-50 text-gray-700 hover:bg-gray-100 py-2 rounded-xl text-sm font-medium transition-colors"
+                     >
+                       {t('feedbackNo')}
+                     </button>
+                   </div>
+                 </div>
+               )}
+               {feedbackState === 'form' && (
+                 <div className="flex flex-col gap-3">
+                   <textarea 
+                     value={feedbackText}
+                     onChange={e => setFeedbackText(e.target.value)}
+                     placeholder={t('feedbackFormPlaceholder')}
+                     className="w-full text-sm p-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/50 min-h-[80px] resize-none"
+                   />
+                   <button 
+                     onClick={submitFeedback}
+                     disabled={!feedbackText.trim()}
+                     className="w-full bg-emerald-600 text-white hover:bg-emerald-700 py-2 rounded-xl text-sm font-medium transition-colors disabled:opacity-50"
+                   >
+                     {t('feedbackSubmit')}
+                   </button>
+                 </div>
+               )}
+               {feedbackState === 'submitting' && (
+                 <div className="flex justify-center p-4">
+                   <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-emerald-600"></div>
+                 </div>
+               )}
+               {feedbackState === 'submitted' && (
+                 <div className="text-center text-emerald-600 text-sm font-medium py-2">
+                   {t('feedbackThanks')}
+                 </div>
+               )}
+             </div>
+           </div>
+         )}
+       </div>
 
       <div className="p-4 bg-white border-t border-gray-100">
         <form 
